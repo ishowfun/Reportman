@@ -41,7 +41,8 @@ namespace Reportman
             HttpWebRequest request = WebRequest.Create(address) as HttpWebRequest;
             request.Method = "POST";
             request.ContentType = "application/x-www-form-urlencoded";
-            var data = string.Join("&", allParams.Select(p => $"{p.Key.AESEncrypt().ToDataString()}={p.Value.AESEncrypt().ToDataString()}"));
+            var data = string.Join("&", allParams.Select(p => $"{p.Key}={p.Value.AESEncrypt().ToDataString()}"));
+
             var bytes = UTF8Encoding.UTF8.GetBytes(data);
             request.ContentLength = bytes.Length;
             using (Stream postStream = request.GetRequestStream())
@@ -53,6 +54,7 @@ namespace Reportman
             {
                 StreamReader reader = new StreamReader(response.GetResponseStream(), Encoding.UTF8);
                 string xml = reader.ReadToEnd();//MyAES.AESDecrypt(MyAES.StringToBytes(reader.ReadToEnd()));
+                Log.Debug(xml);
                 xml = xml.ToBytes().AESDecrypt();
                 reader.Close();
                 return xml;
@@ -69,16 +71,24 @@ namespace Reportman
             }
         }
         public string GetUUID()
-        {
+        {            
             if (!string.IsNullOrEmpty(clientUUID))
                 return clientUUID;
             else
             {
+                Log.Info("获取UUID");
                 var str = SyncPost(url, "GetUUID", new Dictionary<string, string>() { { "clientName", clientName }, { "clientCode", clientCode } });
                 Result.UUID ret = ParseXml<Result.UUID>(str);
+                Log.Info(str);
                 if (ret.code == 0)
                 {
                     clientUUID = ret.uuid;
+                    config.AppSettings.Settings.Add("uuid", clientUUID);
+                    config.Save();
+                }
+                else
+                {
+                    Log.Info($"获取UUID失败,{ret.msg}");
                 }
             }
             return clientUUID;
@@ -94,7 +104,9 @@ namespace Reportman
                 { "clientCode",clientCode},
                 { "clientUUID",GetUUID()}
             };
+            Log.Info("获取登录密码");
             var str = SyncPost(url, "GetPassword", param);
+            Log.Info($"登录密码 {str}");
             Result.Password ret = ParseXml<Result.Password>(str);
             if (ret.code == 0)
                 clientPassword = ret.pw;
@@ -110,11 +122,13 @@ namespace Reportman
                 { "clientUUID",GetUUID()},
                 { "clientPassword",GetPassword()}
             };
+            Log.Info("登录");
             var str = SyncPost(url, "Login", param);
+            Log.Info($"登录结果 {str}");
             Result.Login ret = ParseXml<Result.Login>(str);
             if (ret.code == 0)
                 heartBeatInterval = ret.heartbeattime;
-            return heartBeatInterval;
+            return ret.code;
         }
 
 
@@ -127,7 +141,9 @@ namespace Reportman
                 { "clientUUID",GetUUID()},
                 { "clientPassword",GetPassword()}
             };
+            Log.Info("发送心跳");
             var str = SyncPost(url, "SendHeartBeat", param);
+            Log.Info($"心跳结果 {str}");
             Result.Common ret = ParseXml<Result.Common>(str);
             return ret.code;
         }
@@ -141,7 +157,9 @@ namespace Reportman
                 { "clientUUID",GetUUID()},
                 { "clientPassword",GetPassword()}
             };
+            Log.Info("获取发送信息");
             var str= SyncPost(url, "GetBuildingData", param);
+            Log.Info($"获取结果 {str}");
             Result.BuildData data = ParseXml<Result.BuildData>(str);
             return data;
         }
@@ -156,7 +174,9 @@ namespace Reportman
                 { "clientPassword",GetPassword()},
                 { "data",data }
             };
+            Log.Info("发送数据");
             var str = SyncPost(url, "SendMeterData", param);
+            Log.Info($"发送结果 {str}");
             Result.Common ret = ParseXml<Result.Common>(str);
             return ret.code;
         }

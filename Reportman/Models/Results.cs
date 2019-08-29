@@ -65,6 +65,32 @@ namespace Reportman.Models
             [XmlElement("building")]
             public Building[] builds;
         }
-
+        [Serializable]
+        [XmlRoot("root")]
+        public class SendBuilds
+        {
+            [XmlElement("building")]
+            public SendBuilding build;
+        }
+        [Serializable]
+        public class SendBuilding
+        {
+            [XmlAttribute("id")]
+            public int id;
+            [XmlElement("meter")]
+            public SendMeter[] Meters;
+        }
+        [Serializable]        
+        public class SendMeter
+        {
+            [XmlAttribute("id")]
+            public string id;
+            [XmlAttribute("extid")]
+            public string extid;
+            [XmlAttribute("time")]
+            public string time;
+            [XmlText]
+            public string value;
+        }
     }
 }
