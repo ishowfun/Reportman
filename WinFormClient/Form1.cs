@@ -21,7 +21,7 @@ namespace WinFormClient
             InitializeComponent();
             Log.LogInfo += PrintLog;
         }
-
+        
         public void PrintLog(object sender,string log)
         {
             string l = log;
@@ -29,8 +29,8 @@ namespace WinFormClient
             {
                 if (textBox1.Lines.Count() >= 500)
                     textBox1.Text = string.Empty;
-                textBox1.AppendText(l + "\n");
-                
+                textBox1.AppendText(l + Environment.NewLine);
+                textBox1.ScrollToCaret();
             }));
         }
 
@@ -54,6 +54,7 @@ namespace WinFormClient
                 this.ShowInTaskbar = true;
                 //托盘区图标隐藏
                 notifyIcon1.Visible = false;
+                textBox1.ScrollToCaret();
             }
         }
 
