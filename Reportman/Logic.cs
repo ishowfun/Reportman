@@ -20,12 +20,14 @@ namespace Reportman
         private Thread MainThread;
         private bool Running = false;
         private bool Logined = false;
-        
-        private int HeartInterval = 1000;
+        private AutoResetEvent ExitMain;
+        private AutoResetEvent ExitHB;
         private int MainInterval;
         public Logic()
         {
             Requester = new Requester();
+            ExitMain = new AutoResetEvent(false);
+            ExitHB = new AutoResetEvent(false);
             MainInterval = int.Parse(ConfigurationManager.AppSettings["mainInterval"]);
         }       
 
@@ -76,17 +78,28 @@ namespace Reportman
                     {
                         Requester.Login();
                     }
-                    Thread.Sleep(MainInterval);
+                    if(ExitMain.WaitOne(MainInterval))
+                    {
+                        break;
+                    }
+                    //Thread.Sleep(MainInterval);
                 }
             }));
             Heartbeat = new Thread(new ThreadStart(() =>
             {
                 while(Running)
                 {
-                    Thread.Sleep(HeartInterval);
+                    if(ExitHB.WaitOne(Requester.heartBeatInterval * 1000))
+                    {
+                        break;
+                    }
+                    //Thread.Sleep(Requester.heartBeatInterval * 1000);
                     if(Logined)
                     {
-                        Requester.SendHeartBeat();
+                        if(Requester.SendHeartBeat() != 0)
+                        {
+                            Logined = Requester.Login() == 0;
+                        }
                         continue;
                     }
                     if ( Requester.Login() != 0)
@@ -95,8 +108,7 @@ namespace Reportman
                     }
                     else
                     {
-                        Logined = true;
-                        HeartInterval = Requester.heartBeatInterval * 1000;
+                        Logined = true;                
                         MainThread.Start();                        
                     }                    
                 }
@@ -108,6 +120,8 @@ namespace Reportman
         public void Stop()
         {
             Running = false;
+            ExitMain.Set();
+            ExitHB.Set();
             Heartbeat.Join();
             MainThread.Join();
         }

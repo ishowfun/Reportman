@@ -128,6 +128,8 @@ namespace Reportman
             Result.Login ret = ParseXml<Result.Login>(str);
             if (ret.code == 0)
                 heartBeatInterval = ret.heartbeattime;
+            else
+                heartBeatInterval = 10;
             return ret.code;
         }
 

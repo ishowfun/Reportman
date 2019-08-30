@@ -12,6 +12,9 @@ namespace Reportman.Utils
     public static class Log
     {
         private static ILog _logger;
+        public static event EventHandler<string> LogError;
+        public static event EventHandler<string> LogInfo;
+        public static event EventHandler<string> LogDebug;
         
         private static ILog Logger
         {
@@ -32,16 +35,19 @@ namespace Reportman.Utils
         public static void Error(string log)
         {
             Logger.Error(log);
+            LogError?.Invoke(null, log);
         }
 
         public static void Info(string log)
         {
             Logger.Info(log);
+            LogInfo?.Invoke(null, log);
         }
 
         public static void Debug(string log)
         {
             Logger.Debug(log);
+            LogDebug?.Invoke(null, log);
         }
     }
 }
