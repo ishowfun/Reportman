@@ -13,7 +13,7 @@ using System.IO;
 
 namespace Reportman
 {
-    public class Logic:IDisposable
+    public class Logic : IDisposable
     {
         private Requester Requester;
         private Thread Heartbeat;
@@ -29,23 +29,24 @@ namespace Reportman
             ExitMain = new AutoResetEvent(false);
             ExitHB = new AutoResetEvent(false);
             MainInterval = int.Parse(ConfigurationManager.AppSettings["mainInterval"]);
-        }       
+        }
 
         public void Start()
         {
             MainThread = new Thread(new ThreadStart(() =>
             {
-                while(Running)
+                while (Running)
                 {
-                    var bds = Requester.GetBuildingData();
-                    if (bds.code == 0)
+                    try
                     {
-                        foreach (var b in bds.builds)
+                        var bds = Requester.GetBuildingData();
+                        if (bds.code == 0)
                         {
-                            string ids = string.Join(",", b.Meters.Select(m => $"'{m.value}'"));
-                            string sql = $"SELECT* FROM(SELECT Result, Time, MeterNumber FROM NingDaSjy.dbo.WaterMeter WHERE MeterNumber IN ({ids})) a union SELECT* FROM(SELECT Result, Time, MeterNumber FROM NingDaSjy.dbo.ElectricMeter WHERE MeterNumber IN ({ids})) b ORDER BY MeterNumber asc;";
-                            try
+                            foreach (var b in bds.builds)
                             {
+                                string ids = string.Join(",", b.Meters.Select(m => $"'{m.value}'"));
+                                string sql = $"SELECT* FROM(SELECT Result, Time, MeterNumber FROM NingDaSjy.dbo.WaterMeter WHERE MeterNumber IN ({ids})) a union SELECT* FROM(SELECT Result, Time, MeterNumber FROM NingDaSjy.dbo.ElectricMeter WHERE MeterNumber IN ({ids})) b ORDER BY MeterNumber asc;";
+
                                 DataTable t = DBHelper.ExecuteReader(sql);
                                 Result.SendBuilds sb = new Result.SendBuilds();
                                 sb.build = new Result.SendBuilding();
@@ -68,53 +69,60 @@ namespace Reportman
                                 xmlSerializer.Serialize(stringWriter, sb);
                                 Requester.SendMeterData(stringBuilder.ToString());
                             }
-                            catch(Exception ex)
-                            {
-                                Log.Error($"{ex.Message}\n{ex.StackTrace}");
-                            }
-                        }                        
+                        }
+                        else if (bds.code == 0004)
+                        {
+                            Requester.Login();
+                        }
+                        if (ExitMain.WaitOne(MainInterval))
+                        {
+                            break;
+                        }
                     }
-                    else if(bds.code == 0004)
+                    catch (Exception ex)
                     {
-                        Requester.Login();
-                    }
-                    if(ExitMain.WaitOne(MainInterval))
-                    {
-                        break;
+                        Log.Error($"{ex.Message}\r\n{ex.StackTrace}");
                     }
                     //Thread.Sleep(MainInterval);
                 }
             }));
             Heartbeat = new Thread(new ThreadStart(() =>
             {
-                while(Running)
+                while (Running)
                 {
-                    if(ExitHB.WaitOne(Requester.heartBeatInterval * 1000))
+                    try
                     {
-                        break;
-                    }
-                    //Thread.Sleep(Requester.heartBeatInterval * 1000);
-                    if(Logined)
-                    {
-                        if(Requester.SendHeartBeat() != 0)
+                        if (ExitHB.WaitOne(Requester.heartBeatInterval * 1000))
                         {
-                            Logined = Requester.Login() == 0;
+                            break;
                         }
-                        continue;
+                        //Thread.Sleep(Requester.heartBeatInterval * 1000);
+                        if (Logined)
+                        {
+                            if (Requester.SendHeartBeat() != 0)
+                            {
+                                Logined = Requester.Login() == 0;
+                            }
+                            continue;
+                        }
+                        if (Requester.Login() != 0)
+                        {
+                            continue;
+                        }
+                        else
+                        {
+                            Logined = true;
+                            MainThread.Start();
+                        }
                     }
-                    if ( Requester.Login() != 0)
+                    catch (Exception ex)
                     {
-                        continue;
+                        Log.Error($"{ex.Message}\r\n{ex.StackTrace}");
                     }
-                    else
-                    {
-                        Logined = true;                
-                        MainThread.Start();                        
-                    }                    
                 }
             }));
             Running = true;
-            Heartbeat.Start();            
+            Heartbeat.Start();
         }
 
         public void Stop()
