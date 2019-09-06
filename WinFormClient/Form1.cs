@@ -35,10 +35,11 @@ namespace WinFormClient
         }
 
         private void button1_Click(object sender, EventArgs e)
-        {  
-            logic = new Logic();
+        {
             button1.Enabled = false;
             button2.Enabled = true;
+            if (logic != null)
+                logic = new Logic();            
             logic.Start();
         }
 
